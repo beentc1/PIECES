@@ -615,7 +615,6 @@ createPalette("cubePalette", PALETTES.cubePalette, (color) => {
 });
 
 createPalette("backgroundPalette", PALETTES.backgroundPalette, (color) => {
-  backgroundColor = color;
   const isWhite = color.toLowerCase() === "#ffffff";
   const viewport = document.querySelector(".viewport");
   viewport.style.backgroundColor = color;
