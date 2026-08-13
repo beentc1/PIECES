@@ -3,6 +3,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { OutlinePass } from "three/addons/postprocessing/OutlinePass.js";
 import { SMAAPass } from "three/addons/postprocessing/SMAAPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 
 const canvas = document.getElementById("view");
 const stage = document.querySelector(".viewport");
@@ -33,7 +34,6 @@ const renderer = new THREE.WebGLRenderer({
 });
 
 renderer.setPixelRatio(window.devicePixelRatio);
-renderer.outputColorSpace = THREE.SRGBColorSpace;
 const composer = new EffectComposer(renderer);
 
 const scene = new THREE.Scene();
@@ -70,6 +70,8 @@ const smaaPass = new SMAAPass(
   stage.clientHeight * renderer.getPixelRatio(),
 );
 
+const outputPass = new OutputPass();
+composer.addPass(outputPass);
 composer.addPass(smaaPass);
 
 // ==============================================================
@@ -184,11 +186,12 @@ const localTextureAxes = [
   { u: [-1, 0, 0], up: [0, 1, 0] },
 ];
 
+const PREVIEW_SIZE = 168;
 function oldUpdateFacePreviews() {
   const scratch = document.createElement("canvas");
-  scratch.width = scratch.height = 168;
+  scratch.width = scratch.height = PREVIEW_SIZE;
   const scratchContext = scratch.getContext("2d");
-  const image = new ImageData(168, 168);
+  const image = new ImageData(PREVIEW_SIZE, PREVIEW_SIZE);
   const savedRigRotation = rig.rotation.clone();
   const savedTarget = renderer.getRenderTarget();
   const savedClearColor = renderer.getClearColor(new THREE.Color());
@@ -211,7 +214,7 @@ function oldUpdateFacePreviews() {
     previewCamera.updateProjectionMatrix();
     previewCamera.updateMatrixWorld(true);
     renderer.setRenderTarget(previewTarget);
-    renderer.setViewport(0, 0, 168, 168);
+    renderer.setViewport(0, 0, PREVIEW_SIZE, PREVIEW_SIZE);
     renderer.setScissorTest(false);
     renderer.clear();
     renderer.render(scene, previewCamera);
@@ -219,17 +222,17 @@ function oldUpdateFacePreviews() {
       previewTarget,
       0,
       0,
-      168,
-      168,
+      PREVIEW_SIZE,
+      PREVIEW_SIZE,
       previewPixels,
     );
     image.data.set(previewPixels);
     scratchContext.putImageData(image, 0, 0);
     const context = previewCanvases[face].getContext("2d");
     context.save();
-    context.clearRect(0, 0, 168, 168);
+    context.clearRect(0, 0, PREVIEW_SIZE, PREVIEW_SIZE);
     context.scale(1, -1);
-    context.drawImage(scratch, 0, -168);
+    context.drawImage(scratch, 0, -PREVIEW_SIZE);
     context.restore();
   });
 
@@ -294,20 +297,6 @@ function updateFacePreviews() {
         context.drawImage(material.map.image, -tile / 2, -tile / 2, tile, tile);
         context.restore();
       });
-
-    context.strokeStyle = "rgba(255,255,255,.2)";
-    context.lineWidth = 1;
-    for (let i = 0; i <= 3; i += 1) {
-      const p = Math.round(i * tile) + 0.5;
-      context.beginPath();
-      context.moveTo(p, 0);
-      context.lineTo(p, size);
-      context.stroke();
-      context.beginPath();
-      context.moveTo(0, p);
-      context.lineTo(size, p);
-      context.stroke();
-    }
   });
 }
 
@@ -499,7 +488,7 @@ function createCube() {
             color: 0x5e5e5e, //큐브 외곽선
           }),
         );
-        edges.scale.setScalar(1.003);
+        edges.scale.setScalar(1.0015);
         cubie.add(edges);
         cubie.position.set(cx * S, cy * S, cz * S);
 
