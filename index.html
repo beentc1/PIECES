@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PIECES</title>
 
-    <!-- Google Font -->
+    <!-- ============================================================== -->
+    <!-- 1. 화면 전체에 적용할 웹폰트 -->
+    <!-- ============================================================== -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -13,10 +15,14 @@
       rel="stylesheet"
     />
 
-    <!-- Styles -->
+    <!-- ============================================================== -->
+    <!-- 2. 반응형 레이아웃과 UI 스타일 -->
+    <!-- ============================================================== -->
     <link rel="stylesheet" href="style.css" />
 
-    <!-- Three.js Import Map -->
+    <!-- ============================================================== -->
+    <!-- 3. Three.js 모듈 경로 정의 -->
+    <!-- ============================================================== -->
     <script type="importmap">
       {
         "imports": {
@@ -30,14 +36,14 @@
   </head>
 
   <body>
-    <!-- ==========================================================================
-SECTION 01 : APPLICATION
-========================================================================== -->
+    <!-- ============================================================== -->
+    <!-- 4. 애플리케이션 전체 레이아웃 -->
+    <!-- ============================================================== -->
 
     <main class="app">
-      <!-- ========================================================================
-  SECTION 02 : LEFT SIDEBAR
-  ======================================================================== -->
+      <!-- ============================================================== -->
+      <!-- 4-1. 입력·TURN·모션·컬러를 조절하는 좌측 제어 영역 -->
+      <!-- ============================================================== -->
 
       <aside class="sidebar">
         <button class="sidebar__back" type="button">← Back to Main</button>
@@ -104,6 +110,17 @@ SECTION 01 : APPLICATION
           </div>
         </section>
 
+        <section class="panel panel--motion">
+          <h2 class="panel__title">MOTION</h2>
+          <label class="toggle-control" for="autoRotate">
+            <input id="autoRotate" type="checkbox" checked />
+            <span>Auto rotate</span>
+          </label>
+          <p class="panel__hint">
+            Drag to orbit · Scroll to zoom · Arrow keys to rotate
+          </p>
+        </section>
+
         <section class="panel panel--input">
           <h2 class="panel__title">COLOR</h2>
           <div class="setting-group">
@@ -119,17 +136,45 @@ SECTION 01 : APPLICATION
         </section>
       </aside>
 
-      <!-- ========================================================================
-  SECTION 03 : VIEWPORT
-  ======================================================================== -->
+      <!-- ============================================================== -->
+      <!-- 4-2. 3D 큐브를 조작하고 관찰하는 중앙 렌더 영역 -->
+      <!-- ============================================================== -->
 
       <section class="viewport">
         <canvas id="view" aria-label="3D Rubik Cube"></canvas>
       </section>
 
-      <!-- ========================================================================
-  SECTION 04 : SAVE
-  ======================================================================== -->
+      <aside class="face-preview" aria-label="Current cube faces">
+        <p class="face-preview__title">FACES</p>
+        <figure>
+          <canvas data-preview="front" width="168" height="168"></canvas>
+          <figcaption>Front</figcaption>
+        </figure>
+        <figure>
+          <canvas data-preview="right" width="168" height="168"></canvas>
+          <figcaption>Right</figcaption>
+        </figure>
+        <figure>
+          <canvas data-preview="back" width="168" height="168"></canvas>
+          <figcaption>Back</figcaption>
+        </figure>
+        <figure>
+          <canvas data-preview="left" width="168" height="168"></canvas>
+          <figcaption>Left</figcaption>
+        </figure>
+        <figure>
+          <canvas data-preview="top" width="168" height="168"></canvas>
+          <figcaption>Top</figcaption>
+        </figure>
+        <figure>
+          <canvas data-preview="bottom" width="168" height="168"></canvas>
+          <figcaption>Bottom</figcaption>
+        </figure>
+      </aside>
+
+      <!-- ============================================================== -->
+      <!-- 4-3. 현재 결과를 저장하는 버튼 영역 -->
+      <!-- ============================================================== -->
 
       <button class="save-button" type="button">SAVE</button>
     </main>
