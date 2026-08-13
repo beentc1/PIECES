@@ -317,7 +317,7 @@ button:active {
     padding: 16px;
   }
   .sidebar {
-    order: 1;
+    order: 3;
     overflow: visible;
   }
   .viewport {
@@ -327,7 +327,7 @@ button:active {
     aspect-ratio: 1 / 1;
   }
   .face-preview {
-    order: 3;
+    order: 1;
     width: 100%;
     overflow: visible;
     display: grid;
