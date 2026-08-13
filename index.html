@@ -51,6 +51,17 @@
         <section class="panel panel--input">
           <h2 class="panel__title">INPUT</h2>
 
+          <div class="unified-input">
+            <input
+              type="text"
+              id="unifiedWord"
+              maxlength="6"
+              value="PIECES"
+              placeholder="Word(Max 6)"
+              autocomplete="off"
+            />
+          </div>
+
           <div class="input-grid">
             <label>
               <span>Front</span>
@@ -134,6 +145,93 @@
             <div class="palette" id="backgroundPalette"></div>
           </div>
         </section>
+
+        <section class="panel panel--export">
+          <h2 class="panel__title">EXPORT</h2>
+
+          <div class="export-target">
+            <label
+              ><input type="radio" name="exportTarget" value="object" checked />
+              <span>Object</span></label
+            >
+            <label
+              ><input type="radio" name="exportTarget" value="faces" />
+              <span>Faces</span></label
+            >
+          </div>
+
+          <div class="export-resolution" id="exportResolution">
+            <span>Resolution</span>
+            <select id="exportSize">
+              <option value="1020" selected>1x</option>
+              <option value="2040">2x</option>
+              <option value="3060">3x</option>
+              <option value="4080">4x</option>
+            </select>
+          </div>
+
+          <div class="export-faces" id="exportFaces" hidden>
+            <div class="face-checks">
+              <label
+                ><input type="checkbox" value="front" />
+                <span>Front</span></label
+              >
+              <label
+                ><input type="checkbox" value="right" />
+                <span>Right</span></label
+              >
+              <label
+                ><input type="checkbox" value="back" /> <span>Back</span></label
+              >
+              <label
+                ><input type="checkbox" value="left" /> <span>Left</span></label
+              >
+              <label
+                ><input type="checkbox" value="top" /> <span>Top</span></label
+              >
+              <label
+                ><input type="checkbox" value="bottom" />
+                <span>Bottom</span></label
+              >
+            </div>
+          </div>
+
+          <div class="export-bg">
+            <span>Background</span>
+            <div class="export-radios">
+              <label
+                ><input type="radio" name="exportBg" value="current" checked />
+                <span>Current</span></label
+              >
+              <label
+                ><input type="radio" name="exportBg" value="transparent" />
+                <span>Transparent</span></label
+              >
+            </div>
+          </div>
+
+          <div class="export-format">
+            <span>Format</span>
+            <div class="export-radios">
+              <label
+                ><input type="radio" name="exportFormat" value="png" checked />
+                <span>PNG</span></label
+              >
+              <label
+                ><input
+                  type="radio"
+                  name="exportFormat"
+                  value="svg"
+                  id="svgFormatRadio"
+                  disabled
+                />
+                <span>SVG</span></label
+              >
+            </div>
+          </div>
+
+          <button id="exportBtn" class="export-btn">EXPORT</button>
+        </section>
       </aside>
 
       <!-- ============================================================== -->
@@ -171,12 +269,6 @@
           <figcaption>Bottom</figcaption>
         </figure>
       </aside>
-
-      <!-- ============================================================== -->
-      <!-- 4-3. 현재 결과를 저장하는 버튼 영역 -->
-      <!-- ============================================================== -->
-
-      <button class="save-button" type="button">SAVE</button>
     </main>
   </body>
 </html>

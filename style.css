@@ -50,6 +50,7 @@ body {
     linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
   background-size: 48px 48px;
   cursor: grab;
+  touch-action: none;
 }
 .viewport.is-dragging {
   cursor: grabbing;
@@ -85,6 +86,25 @@ body {
 .panel__title {
   margin: 0 0 16px;
   font-size: 1rem;
+}
+
+.unified-input {
+  margin-bottom: 16px;
+}
+
+.unified-input input {
+  width: 100%;
+  padding: 12px;
+  font-size: 1.2rem;
+  text-align: center;
+  background: #181818;
+  border: 1px solid var(--border);
+  color: #fff;
+}
+
+.unified-input input:focus {
+  outline: none;
+  border-color: #fff;
 }
 
 .input-grid {
@@ -210,14 +230,6 @@ button:active {
   border-color: white;
 }
 
-.save-button {
-  grid-column: 3;
-  grid-row: 2;
-  width: 100%;
-  padding: 14px 30px;
-  height: auto;
-}
-
 /* ============================================================== */
 /* 4. 큐브의 현재 6개 면을 보여주는 우측 정면 미리보기 영역 */
 /* ============================================================== */
@@ -230,6 +242,7 @@ button:active {
   display: grid;
   gap: 8px;
 }
+
 .face-preview__title {
   margin: 0 0 2px;
   color: var(--muted);
@@ -246,12 +259,21 @@ button:active {
   border: 1px solid var(--border);
   background: #000;
   image-rendering: auto;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
+
+.face-preview canvas.active {
+  border: 1px solid #fff;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+
 .face-preview figcaption {
   margin-top: 3px;
   color: var(--muted);
   font-size: 0.56rem;
-  text-transform: uppercase;
 }
 
 /* ============================================================== */
@@ -320,10 +342,6 @@ button:active {
     height: auto;
     aspect-ratio: 1;
   }
-  .save-button {
-    order: 4;
-    width: 100%;
-  }
 }
 
 /* ============================================================== */
@@ -346,4 +364,84 @@ button:active {
   .face-preview {
     gap: 8px;
   }
+}
+
+/* ============================================================== */
+/* 8. Export 패널 스타일 */
+/* ============================================================== */
+.panel--export {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.panel--export > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.65rem;
+  color: var(--muted);
+}
+
+.panel--export > div[hidden] {
+  display: none !important;
+}
+
+.export-radios,
+.export-target {
+  display: flex;
+  gap: 16px;
+}
+
+.export-radios label,
+.export-target label,
+.face-checks label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 0.75rem;
+}
+
+.export-radios input,
+.export-target input,
+.face-checks input {
+  accent-color: #fff;
+  margin: 0;
+}
+
+.export-radios input:disabled + span {
+  color: var(--border);
+}
+
+.export-faces {
+  margin-top: -4px;
+}
+
+.face-checks {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  background: #151515;
+  border: 1px solid var(--border);
+  padding: 12px;
+}
+
+.export-resolution select {
+  width: 100%;
+  background: #181818;
+  border: 1px solid var(--border);
+  color: #fff;
+  padding: 8px;
+  font-size: 0.8rem;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+}
+
+.export-btn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 12px;
 }

@@ -9,7 +9,6 @@ const canvas = document.getElementById("view");
 const stage = document.querySelector(".viewport");
 
 const backButton = document.querySelector(".sidebar__back");
-const saveButton = document.querySelector(".save-button");
 const autoRotateToggle = document.getElementById("autoRotate");
 
 const faceNames = ["front", "right", "back", "left", "top", "bottom"];
@@ -19,13 +18,7 @@ let outlineColor = "#ffffff";
 
 // ==============================================================
 // 메인 화면으로 돌아가는 동작을 연결할 자리
-// ==============================================================
 backButton?.addEventListener("click", () => {});
-
-// ==============================================================
-// 현재 캔버스 결과를 저장하는 동작을 연결할 자리
-// ==============================================================
-saveButton?.addEventListener("click", () => {});
 
 const renderer = new THREE.WebGLRenderer({
   canvas,
@@ -316,6 +309,8 @@ const internalMaterial = new THREE.MeshBasicMaterial({
 // ==============================================================
 // 6개 면 × 3×3 조각에 사용할 캔버스 텍스처와 재질 생성
 // ==============================================================
+const materialMeta = new WeakMap();
+
 faceNames.forEach((face) => {
   faceTextures[face] = [];
   faceMaterials[face] = [];
@@ -337,6 +332,7 @@ faceNames.forEach((face) => {
     const material = new THREE.MeshBasicMaterial({
       map: texture,
     });
+    materialMeta.set(material, { face, tileIndex: i });
 
     faceMaterials[face].push(material);
   }
@@ -671,13 +667,77 @@ animate();
 // ==============================================================
 // 입력 글자 변경 시 해당 면의 3×3 텍스처와 우측 평면 미리보기를 갱신
 // ==============================================================
-document.querySelectorAll("input[data-face]").forEach((input) => {
+const unifiedWord = document.getElementById("unifiedWord");
+const faceInputs = Array.from(document.querySelectorAll("input[data-face]"));
+
+const faceAngles = {
+  front: { yaw: 0, pitch: 0 },
+  right: { yaw: -90, pitch: 0 },
+  back: { yaw: 180, pitch: 0 },
+  left: { yaw: 90, pitch: 0 },
+  top: { yaw: 0, pitch: 78 },
+  bottom: { yaw: 0, pitch: -78 },
+};
+let activePreviewCanvas = null;
+
+document
+  .querySelectorAll("input[type='text'], input[data-face]")
+  .forEach((input) => {
+    input.addEventListener("pointerdown", () => {
+      requestAnimationFrame(() => input.select());
+    });
+  });
+
+unifiedWord?.addEventListener("input", (e) => {
+  const chars = e.target.value.padEnd(6, " ").split("");
+  faceInputs.forEach((input, i) => {
+    input.value = chars[i] !== " " ? chars[i] : "";
+    updateFaceTexture(input.dataset.face, chars[i]);
+  });
+  updateFacePreviews();
+});
+
+faceInputs.forEach((input) => {
   input.addEventListener("input", () => {
     const face = input.dataset.face;
     const char = input.value;
 
     updateFaceTexture(face, char);
     updateFacePreviews();
+
+    if (unifiedWord) {
+      unifiedWord.value = faceInputs
+        .map((i) => i.value || " ")
+        .join("")
+        .trimEnd();
+    }
+  });
+});
+
+document.querySelectorAll("[data-preview]").forEach((canvas) => {
+  canvas.addEventListener("click", () => {
+    if (activePreviewCanvas) {
+      activePreviewCanvas.classList.remove("active");
+    }
+
+    canvas.classList.add("active");
+    activePreviewCanvas = canvas;
+    autoRotateToggle.checked = false;
+
+    const face = canvas.dataset.preview;
+    const angles = faceAngles[face];
+
+    const normalizeAngle = (angle) => ((angle % 360) + 360) % 360;
+
+    const currentYaw = normalizeAngle(targetYaw);
+    const target = normalizeAngle(angles.yaw);
+
+    let diff = target - currentYaw;
+    if (diff > 180) diff -= 360;
+    if (diff < -180) diff += 360;
+
+    targetYaw += diff;
+    targetPitch = angles.pitch;
   });
 });
 
@@ -898,3 +958,354 @@ createPalette("backgroundPalette", PALETTES.backgroundPalette, (color) => {
   // 배경색은 면 텍스처에 직접 포함되지 않지만, 현재 상태를 다시 그려 일관성을 유지한다.
   updateFacePreviews();
 });
+
+// ==============================================================
+// 9. Export 시스템
+// ==============================================================
+
+const exportTargetRadios = document.querySelectorAll(
+  'input[name="exportTarget"]',
+);
+const exportResolution = document.getElementById("exportResolution");
+const exportFaces = document.getElementById("exportFaces");
+const svgFormatRadio = document.getElementById("svgFormatRadio");
+const exportBtn = document.getElementById("exportBtn");
+
+// UI 상태 업데이트
+function updateExportUI() {
+  const target = document.querySelector('input[name="exportTarget"]:checked');
+  if (!target) return;
+  const isObject = target.value === "object";
+
+  if (isObject) {
+    exportResolution.hidden = false;
+    exportFaces.hidden = true;
+    svgFormatRadio.disabled = true;
+    const format = document.querySelector('input[name="exportFormat"]:checked');
+    if (format && format.value === "svg") {
+      document.querySelector(
+        'input[name="exportFormat"][value="png"]',
+      ).checked = true;
+    }
+  } else {
+    exportFaces.hidden = false;
+    svgFormatRadio.disabled = false;
+  }
+
+  const format = document.querySelector('input[name="exportFormat"]:checked');
+  const isSvg = format && format.value === "svg";
+
+  // Object, Face 모두 PNG면 해상도 노출 (단, Face SVG인 경우는 해상도 숨김)
+  exportResolution.hidden = isSvg;
+}
+
+exportTargetRadios.forEach((radio) =>
+  radio.addEventListener("change", updateExportUI),
+);
+document
+  .querySelectorAll('input[name="exportFormat"]')
+  .forEach((radio) => radio.addEventListener("change", updateExportUI));
+updateExportUI();
+
+// 유틸리티: 파일명 생성
+function getExportPrefix() {
+  return (
+    faceNames
+      .map(
+        (f) =>
+          (
+            document.querySelector(`input[data-face="${f}"]`)?.value || " "
+          ).trim() || "",
+      )
+      .join("")
+      .toLowerCase() || "cube"
+  );
+}
+
+function downloadDataURL(dataURL, filename) {
+  const link = document.createElement("a");
+  link.href = dataURL;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  downloadDataURL(url, filename);
+  URL.revokeObjectURL(url);
+}
+
+// Object PNG 내보내기
+function exportObjectPNG(size, isTransparent) {
+  const savedW = stage.clientWidth;
+  const savedH = stage.clientHeight;
+  const savedAspect = camera.aspect;
+  const savedClearColor = renderer.getClearColor(new THREE.Color());
+  const savedClearAlpha = renderer.getClearAlpha();
+  const savedOutlineEnabled = outlinePass.enabled;
+
+  try {
+    if (isTransparent) {
+      outlinePass.enabled = false;
+      renderer.setClearColor(0x000000, 0);
+    } else {
+      const bgInput = document.querySelector('input[name="exportBg"]:checked');
+      const bgColor =
+        bgInput && bgInput.value === "current"
+          ? getComputedStyle(stage).backgroundColor
+          : isTransparent
+            ? "transparent"
+            : "#000";
+      renderer.setClearColor(bgColor, 1);
+    }
+
+    // 리사이즈
+    renderer.setSize(size, size, false);
+    composer.setSize(size, size);
+    outlinePass.setSize(size, size);
+    smaaPass.setSize(
+      size * renderer.getPixelRatio(),
+      size * renderer.getPixelRatio(),
+    );
+    camera.aspect = 1;
+    camera.updateProjectionMatrix();
+
+    renderer.setRenderTarget(null);
+    composer.render();
+
+    const dataURL = canvas.toDataURL("image/png");
+    downloadDataURL(dataURL, `${getExportPrefix()}-object.png`);
+  } finally {
+    // 복원
+    renderer.setSize(savedW, savedH, false);
+    composer.setSize(savedW, savedH);
+    outlinePass.setSize(savedW, savedH);
+    smaaPass.setSize(
+      savedW * renderer.getPixelRatio(),
+      savedH * renderer.getPixelRatio(),
+    );
+
+    camera.aspect = savedAspect;
+    camera.updateProjectionMatrix();
+
+    renderer.setClearColor(savedClearColor, savedClearAlpha);
+    outlinePass.enabled = savedOutlineEnabled;
+
+    composer.render();
+  }
+}
+
+// Face PNG 내보내기
+function exportFacePNG(face, isTransparent) {
+  const sizeInput = document.getElementById("exportSize");
+  const size = sizeInput ? parseInt(sizeInput.value, 10) : 3060;
+  const tile = size / 3;
+
+  const faceCanvas = document.createElement("canvas");
+  faceCanvas.width = size;
+  faceCanvas.height = size;
+  const context = faceCanvas.getContext("2d");
+
+  const config = previewConfig[face];
+  const normal = new THREE.Vector3().fromArray(config.normal);
+  const colAxis = new THREE.Vector3().fromArray(config.col);
+  const upAxis = new THREE.Vector3().fromArray(config.up);
+
+  if (!isTransparent) {
+    context.fillStyle = cubeColor;
+    context.fillRect(0, 0, size, size);
+  } else {
+    context.clearRect(0, 0, size, size);
+  }
+
+  cubies
+    .filter((cubie) => Math.round(cubie.position[config.axis]) === config.layer)
+    .forEach((cubie) => {
+      const faceIndex = localFaceNormals.findIndex(
+        (localNormal) =>
+          localNormal.clone().applyQuaternion(cubie.quaternion).dot(normal) >
+          0.999,
+      );
+      const material = cubie.material[faceIndex];
+      if (faceIndex < 0 || !material?.map?.image) return;
+
+      const col = Math.round(cubie.position.dot(colAxis)) + 1;
+      const row = 1 - Math.round(cubie.position.dot(upAxis));
+      if (row < 0 || row > 2 || col < 0 || col > 2) return;
+
+      const axes = localTextureAxes[faceIndex];
+      const worldU = new THREE.Vector3()
+        .fromArray(axes.u)
+        .applyQuaternion(cubie.quaternion);
+      const worldUp = new THREE.Vector3()
+        .fromArray(axes.up)
+        .applyQuaternion(cubie.quaternion);
+      const ux = Math.round(worldU.dot(colAxis));
+      const uy = Math.round(-worldU.dot(upAxis));
+      const vx = Math.round(-worldUp.dot(colAxis));
+      const vy = Math.round(worldUp.dot(upAxis));
+
+      context.save();
+      if (!isTransparent) {
+        context.fillStyle = cubeColor;
+        context.fillRect(col * tile, row * tile, tile, tile);
+      }
+      context.beginPath();
+      context.rect(col * tile, row * tile, tile, tile);
+      context.clip();
+      context.translate((col + 0.5) * tile, (row + 0.5) * tile);
+      context.transform(ux, uy, vx, vy, 0, 0);
+      context.drawImage(material.map.image, -tile / 2, -tile / 2, tile, tile);
+      context.restore();
+    });
+
+  downloadDataURL(
+    faceCanvas.toDataURL("image/png"),
+    `${getExportPrefix()}-${face}.png`,
+  );
+}
+
+// Face SVG 내보내기
+function exportFaceSVG(face, isTransparent) {
+  const size = 1536;
+  const tile = size / 3;
+  const config = previewConfig[face];
+  const normal = new THREE.Vector3().fromArray(config.normal);
+  const colAxis = new THREE.Vector3().fromArray(config.col);
+  const upAxis = new THREE.Vector3().fromArray(config.up);
+
+  let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}">\n`;
+  svgContent += `<defs>\n`;
+
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      svgContent += `  <clipPath id="clip-${r}-${c}">\n`;
+      svgContent += `    <rect x="${c * tile}" y="${r * tile}" width="${tile}" height="${tile}"/>\n`;
+      svgContent += `  </clipPath>\n`;
+    }
+  }
+  svgContent += `</defs>\n`;
+
+  if (!isTransparent) {
+    svgContent += `<rect width="${size}" height="${size}" fill="${cubeColor}" />\n`;
+  }
+
+  cubies
+    .filter((cubie) => Math.round(cubie.position[config.axis]) === config.layer)
+    .forEach((cubie) => {
+      const faceIndex = localFaceNormals.findIndex(
+        (localNormal) =>
+          localNormal.clone().applyQuaternion(cubie.quaternion).dot(normal) >
+          0.999,
+      );
+      const material = cubie.material[faceIndex];
+      const meta = materialMeta.get(material);
+
+      if (faceIndex < 0 || !meta) return;
+
+      const col = Math.round(cubie.position.dot(colAxis)) + 1;
+      const row = 1 - Math.round(cubie.position.dot(upAxis));
+      if (row < 0 || row > 2 || col < 0 || col > 2) return;
+
+      const axes = localTextureAxes[faceIndex];
+      const worldU = new THREE.Vector3()
+        .fromArray(axes.u)
+        .applyQuaternion(cubie.quaternion);
+      const worldUp = new THREE.Vector3()
+        .fromArray(axes.up)
+        .applyQuaternion(cubie.quaternion);
+      const ux = Math.round(worldU.dot(colAxis));
+      const uy = Math.round(-worldU.dot(upAxis));
+      const vx = Math.round(-worldUp.dot(colAxis));
+      const vy = Math.round(worldUp.dot(upAxis));
+
+      const origInput = document.querySelector(
+        `input[data-face="${meta.face}"]`,
+      );
+      const char = origInput ? origInput.value || " " : " ";
+
+      const origR = Math.floor(meta.tileIndex / 3);
+      const origC = meta.tileIndex % 3;
+
+      const dx = tile * 1.5 - (origC + 0.5) * tile;
+      const dy = tile * 1.5 - (origR + 0.5) * tile;
+
+      const cx = (col + 0.5) * tile;
+      const cy = (row + 0.5) * tile;
+
+      // Adobe Illustrator/Figma 호환을 위한 Y 보정치 (Unbounded 폰트 기준)
+      const baselineY = dy + 350;
+
+      if (!isTransparent) {
+        svgContent += `<rect x="${col * tile}" y="${row * tile}" width="${tile}" height="${tile}" fill="${cubeColor}" clip-path="url(#clip-${row}-${col})"/>\n`;
+      }
+
+      // SVG 특성상 text에 & 등 특수문자 이스케이프 필요
+      const safeChar = char
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+      svgContent += `<g clip-path="url(#clip-${row}-${col})">\n`;
+      svgContent += `  <g transform="translate(${cx}, ${cy}) matrix(${ux}, ${uy}, ${vx}, ${vy}, 0, 0)">\n`;
+      svgContent += `    <text x="${dx}" y="${baselineY}" text-anchor="middle" font-family="'Unbounded', 'Arial Black', sans-serif" font-weight="900" font-size="1000" fill="${textColor}">${safeChar}</text>\n`;
+      svgContent += `  </g>\n`;
+      svgContent += `</g>\n`;
+    });
+
+  svgContent += `</svg>`;
+
+  const blob = new Blob([svgContent], { type: "image/svg+xml" });
+  downloadBlob(blob, `${getExportPrefix()}-${face}.svg`);
+}
+
+async function exportBatch() {
+  const target = document.querySelector('input[name="exportTarget"]:checked');
+  const bgInput = document.querySelector('input[name="exportBg"]:checked');
+  const formatInput = document.querySelector(
+    'input[name="exportFormat"]:checked',
+  );
+
+  if (!target || !bgInput || !formatInput) return;
+
+  const isObject = target.value === "object";
+  const isTransparent = bgInput.value === "transparent";
+  const format = formatInput.value;
+
+  exportBtn.disabled = true;
+  exportBtn.textContent = "EXPORTING...";
+
+  try {
+    if (isObject) {
+      const sizeInput = document.getElementById("exportSize");
+      const size = sizeInput ? parseInt(sizeInput.value, 10) : 3060;
+      exportObjectPNG(size, isTransparent);
+    } else {
+      const selectedFaces = Array.from(
+        document.querySelectorAll(".face-checks input:checked"),
+      ).map((cb) => cb.value);
+      if (selectedFaces.length === 0) {
+        alert("Please select at least one face.");
+        return;
+      }
+      for (const face of selectedFaces) {
+        if (format === "svg") {
+          exportFaceSVG(face, isTransparent);
+        } else {
+          exportFacePNG(face, isTransparent);
+        }
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    }
+  } catch (e) {
+    console.error("Export error:", e);
+    alert("An error occurred during export.");
+  } finally {
+    exportBtn.disabled = false;
+    exportBtn.textContent = "EXPORT";
+  }
+}
+
+exportBtn?.addEventListener("click", exportBatch);
