@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PIECES</title>
+
+    <!-- ============================================================== -->
+    <!-- 1. 화면 전체에 적용할 웹폰트 -->
+    <!-- ============================================================== -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;900&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- ============================================================== -->
+    <!-- 2. 반응형 레이아웃과 UI 스타일 -->
+    <!-- ============================================================== -->
+    <link rel="stylesheet" href="style.css" />
+
+    <!-- ============================================================== -->
+    <!-- 3. Three.js 모듈 경로 정의 -->
+    <!-- ============================================================== -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"
+        }
+      }
+    </script>
+
+    <script type="module" src="app.js" defer></script>
+  </head>
+
+  <body>
+    <!-- ============================================================== -->
+    <!-- 4. 애플리케이션 전체 레이아웃 -->
+    <!-- ============================================================== -->
+
+    <main class="app">
+      <!-- ============================================================== -->
+      <!-- 4-1. 입력·TURN·모션·컬러를 조절하는 좌측 제어 영역 -->
+      <!-- ============================================================== -->
+
+      <aside class="sidebar">
+        <button class="sidebar__back" type="button">← Back to Main</button>
+
+        <section class="panel panel--input">
+          <h2 class="panel__title">INPUT</h2>
+
+          <div class="input-grid">
+            <label>
+              <span>Front</span>
+              <input data-face="front" maxlength="1" value="P" />
+            </label>
+
+            <label>
+              <span>Right</span>
+              <input data-face="right" maxlength="1" value="I" />
+            </label>
+
+            <label>
+              <span>Back</span>
+              <input data-face="back" maxlength="1" value="E" />
+            </label>
+
+            <label>
+              <span>Left</span>
+              <input data-face="left" maxlength="1" value="C" />
+            </label>
+
+            <label>
+              <span>Top</span>
+              <input data-face="top" maxlength="1" value="E" />
+            </label>
+
+            <label>
+              <span>Bottom</span>
+              <input data-face="bottom" maxlength="1" value="S" />
+            </label>
+          </div>
+        </section>
+
+        <section class="panel panel--turn">
+          <h2 class="panel__title">TURN</h2>
+
+          <div class="turn-grid">
+            <button data-turn="R" data-dir="1">R ↻</button>
+            <button data-turn="R" data-dir="-1">R ↺</button>
+
+            <button data-turn="L" data-dir="1">L ↻</button>
+            <button data-turn="L" data-dir="-1">L ↺</button>
+
+            <button data-turn="U" data-dir="1">U ↻</button>
+            <button data-turn="U" data-dir="-1">U ↺</button>
+
+            <button data-turn="D" data-dir="1">D ↻</button>
+            <button data-turn="D" data-dir="-1">D ↺</button>
+
+            <button data-turn="F" data-dir="1">F ↻</button>
+            <button data-turn="F" data-dir="-1">F ↺</button>
+
+            <button data-turn="B" data-dir="1">B ↻</button>
+            <button data-turn="B" data-dir="-1">B ↺</button>
+
+            <button id="shuffle" class="turn-grid__shuffle">SHUFFLE</button>
+          </div>
+        </section>
+
+        <section class="panel panel--motion">
+          <h2 class="panel__title">MOTION</h2>
+          <label class="toggle-control" for="autoRotate">
+            <input id="autoRotate" type="checkbox" checked />
+            <span>Auto rotate</span>
+          </label>
+          <p class="panel__hint">
+            Drag to orbit · Scroll to zoom · Arrow keys to rotate
+          </p>
+        </section>
+
+        <section class="panel panel--input">
+          <h2 class="panel__title">COLOR</h2>
+          <div class="setting-group">
+            <span>Text</span>
+            <div class="palette" id="textPalette"></div>
+
+            <span>Cube</span>
+            <div class="palette" id="cubePalette"></div>
+
+            <span>Background</span>
+            <div class="palette" id="backgroundPalette"></div>
+          </div>
+        </section>
+      </aside>
+
+      <!-- ============================================================== -->
+      <!-- 4-2. 3D 큐브를 조작하고 관찰하는 중앙 렌더 영역 -->
+      <!-- ============================================================== -->
+
+      <section class="viewport">
+        <canvas id="view" aria-label="3D Rubik Cube"></canvas>
+      </section>
+
+      <aside class="face-preview" aria-label="Current cube faces">
+        <p class="face-preview__title">FACES</p>
+        <figure>
+          <canvas data-preview="front" width="168" height="168"></canvas>
+          <figcaption>Front</figcaption>
+        </figure>
+        <figure>
+          <canvas data-preview="right" width="168" height="168"></canvas>
+          <figcaption>Right</figcaption>
+        </figure>
+        <figure>
+          <canvas data-preview="back" width="168" height="168"></canvas>
+          <figcaption>Back</figcaption>
+        </figure>
+        <figure>
+          <canvas data-preview="left" width="168" height="168"></canvas>
+          <figcaption>Left</figcaption>
+        </figure>
+        <figure>
+          <canvas data-preview="top" width="168" height="168"></canvas>
+          <figcaption>Top</figcaption>
+        </figure>
+        <figure>
+          <canvas data-preview="bottom" width="168" height="168"></canvas>
+          <figcaption>Bottom</figcaption>
+        </figure>
+      </aside>
+
+      <!-- ============================================================== -->
+      <!-- 4-3. 현재 결과를 저장하는 버튼 영역 -->
+      <!-- ============================================================== -->
+
+      <button class="save-button" type="button">SAVE</button>
+    </main>
+  </body>
+</html>
