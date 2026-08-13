@@ -488,7 +488,7 @@ function createCube() {
             color: 0x5e5e5e, //큐브 외곽선
           }),
         );
-        edges.scale.setScalar(1.0015);
+        edges.scale.setScalar(1.002);
         cubie.add(edges);
         cubie.position.set(cx * S, cy * S, cz * S);
 
