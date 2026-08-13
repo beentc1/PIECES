@@ -163,19 +163,6 @@ button:active {
   transition-duration: 0.3 s;
 }
 
-.sidebar__back {
-  height: auto;
-  padding: 0;
-  background: none;
-  border: none;
-  text-align: left;
-}
-.sidebar__back:hover {
-  transform: translateX(6px);
-  box-shadow: none;
-  background: none;
-}
-
 .turn-grid__shuffle {
   grid-column: 1/-1;
 }
