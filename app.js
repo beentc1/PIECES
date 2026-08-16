@@ -53,7 +53,6 @@ import * as THREE from "three";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { OutlinePass } from "three/addons/postprocessing/OutlinePass.js";
-import { SMAAPass } from "three/addons/postprocessing/SMAAPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 
 /* ================================================================
@@ -91,15 +90,17 @@ const PITCH_LIMIT = 88;                         // 상하 회전 최대 제한�
 const DRAG_SENSITIVITY = 0.24;                  // 드래그 회전 감도
 const KEYBOARD_STEP = 6;                        // 방향키 회전 단위 (도)
 const KEYBOARD_SHIFT_STEP = 12;                 // Shift+방향키 회전 단위 (도)
+const KEYBOARD_COOLDOWN_MS = 200;               // [조절값] 키보드 큐브 회전 입력 쿨타임 (ms)
+let lastKeyboardTurnTime = 0;
 
 // [조절값] 자동 회전 파라미터
 const AUTO_ROTATE_SPEED = 0.2;                  // 자동 회전 속도 (프레임당 각도 증가량)
 const ROTATION_DAMPING = 12;                    // 시점 보간 댐핑 계수
 
 // [조절값] 실루엣 아웃라인 효과 설정
-const OUTLINE_EDGE_STRENGTH = 5;                // 외곽선 강도
-const OUTLINE_EDGE_THICKNESS = 2;               // 외곽선 두께
-const OUTLINE_EDGE_GLOW = 0;                    // 외곽선 글로우 강도
+const OUTLINE_EDGE_STRENGTH = 4.5;               // 외곽선 강도 (자연스러운 안티앨리어싱 그라데이션)
+const OUTLINE_EDGE_THICKNESS = 1.2;              // 외곽선 두께
+const OUTLINE_EDGE_GLOW = 0;                     // 외곽선 글로우 강도
 const OUTLINE_HIDDEN_EDGE_COLOR = "#ffffff";    // 가려진 면의 기본 외곽선 색상
 const CUBIE_EDGE_COLOR = 0x5e5e5e;              // 각 피스 메쉬 경계선 색상
 
@@ -202,7 +203,7 @@ const FONT_REGISTRY = [
 const PALETTES = {
   textPalette: [
     "#ffffff", "#000000", "#ff3b30", "#ff9e16",
-    "#ffd60a", "#30d158", "#d9ff3a", "#bf5af2",
+    "#ffd60a", "#30d158", "#0a84ff", "#bf5af2",
   ],
   cubePalette: [
     "#ffffff", "#000000", "#ff3b30", "#ff9e16",
@@ -307,7 +308,17 @@ const renderer = new THREE.WebGLRenderer({
 });
 renderer.setPixelRatio(window.devicePixelRatio);
 
-const composer = new EffectComposer(renderer);
+// GPU 하드웨어 4x MSAA 안티앨리어싱이 적용된 WebGLRenderTarget 생성
+// 소프트웨어 블러(SMAA/FXAA) 없이 1px 피스 경계선과 글자 선명도를 100% 보존하면서 계단 현상 제거
+const renderTarget = new THREE.WebGLRenderTarget(
+  stage.clientWidth * window.devicePixelRatio,
+  stage.clientHeight * window.devicePixelRatio,
+  {
+    samples: 4,
+  },
+);
+
+const composer = new EffectComposer(renderer, renderTarget);
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(CAMERA_FOV, 1, 0.1, 100);
@@ -333,16 +344,19 @@ outlinePass.edgeThickness = OUTLINE_EDGE_THICKNESS;
 outlinePass.edgeGlow = OUTLINE_EDGE_GLOW;
 outlinePass.visibleEdgeColor.set(state.color.outline);
 outlinePass.hiddenEdgeColor.set(OUTLINE_HIDDEN_EDGE_COLOR);
+
+// 검정 외곽선이 가산 혼합(AdditiveBlending)으로 인해 0이 더해져 사라지는 현상 방지:
+// overlayMaterial의 블렌딩을 CustomBlending(알파 혼합)으로 설정하여 흰색/검은색 배경 모두에서 선명하게 렌더링
+if (outlinePass.overlayMaterial) {
+  outlinePass.overlayMaterial.blending = THREE.CustomBlending;
+  outlinePass.overlayMaterial.blendSrc = THREE.SrcAlphaFactor;
+  outlinePass.overlayMaterial.blendDst = THREE.OneMinusSrcAlphaFactor;
+  outlinePass.overlayMaterial.blendEquation = THREE.AddEquation;
+}
 composer.addPass(outlinePass);
 
 const outputPass = new OutputPass();
 composer.addPass(outputPass);
-
-const smaaPass = new SMAAPass(
-  stage.clientWidth * renderer.getPixelRatio(),
-  stage.clientHeight * renderer.getPixelRatio(),
-);
-composer.addPass(smaaPass);
 
 scene.add(new THREE.HemisphereLight(0xffffff, 0x111827, 2.2));
 
@@ -355,11 +369,9 @@ fillLight.position.set(-6, 2, -5);
 scene.add(fillLight);
 
 function applyRendererSize(w, h) {
-  const pixelRatio = renderer.getPixelRatio();
   renderer.setSize(w, h, false);
   composer.setSize(w, h);
   outlinePass.setSize(w, h);
-  smaaPass.setSize(w * pixelRatio, h * pixelRatio);
 }
 
 function resize() {
@@ -466,13 +478,17 @@ function createCube() {
 
         const cubie = new THREE.Mesh(cubieGeometry, materials);
 
+        // 큐브 피스 경계선: 지오메트리를 바깥으로 1.002배 확장하는 방식(외곽선 돌출 및 계단현상 원인)을 제거하고,
+        // GPU polygonOffset을 적용하여 메쉬 표면에 정확히 밀착 렌더링
         const edges = new THREE.LineSegments(
           new THREE.EdgesGeometry(cubieGeometry),
           new THREE.LineBasicMaterial({
             color: CUBIE_EDGE_COLOR,
+            polygonOffset: true,
+            polygonOffsetFactor: -1,
+            polygonOffsetUnits: -1,
           }),
         );
-        edges.scale.setScalar(1.002);
         cubie.add(edges);
 
         cubie.position.set(cx * CUBE_SPACING, cy * CUBE_SPACING, cz * CUBE_SPACING);
@@ -487,6 +503,10 @@ function createCube() {
       }
     }
   }
+
+  // OutlinePass의 실루엣 마스크 대상을 1px 와이어프레임 라인이 아닌 27개 솔리드 메쉬(cubies)로 지정
+  // 와이어프레임 선이 실루엣 외곽선과 충돌하여 계단 현상 및 톱니 노이즈가 발생하는 현상 원천 차단
+  outlinePass.selectedObjects = cubies;
 }
 
 /* ================================================================
@@ -667,7 +687,7 @@ function pushHistory(type, moveName, direction, isHistoryAction = false) {
 }
 
 function turn(moveName, direction = 1, onComplete, isHistoryAction = false) {
-  if (!movesConfig[moveName]) {
+  if (state.interaction.turning || !movesConfig[moveName]) {
     onComplete?.();
     return;
   }
@@ -724,7 +744,7 @@ function turn(moveName, direction = 1, onComplete, isHistoryAction = false) {
 }
 
 function middleTurn(moveName, direction = 1, onComplete, isHistoryAction = false) {
-  if (!movesConfig[moveName]) {
+  if (state.interaction.turning || !movesConfig[moveName]) {
     onComplete?.();
     return;
   }
@@ -780,7 +800,7 @@ function middleTurn(moveName, direction = 1, onComplete, isHistoryAction = false
 }
 
 function wideTurn(moveName, direction = 1, onComplete, isHistoryAction = false) {
-  if (!movesConfig[moveName]) {
+  if (state.interaction.turning || !movesConfig[moveName]) {
     onComplete?.();
     return;
   }
@@ -940,6 +960,53 @@ function shuffleCube(onComplete, onStepProgress) {
   next();
 }
 
+function solveCube(onComplete, onStepProgress) {
+  if (state.history.undoStack.length === 0) {
+    updateHistoryButtons();
+    onComplete?.();
+    return;
+  }
+
+  state.interaction.turning = false;
+  const totalMoves = state.history.undoStack.length;
+  let currentStep = 0;
+
+  const nextSolve = () => {
+    if (state.history.undoStack.length === 0) {
+      state.interaction.turning = false;
+      updateHistoryButtons();
+      onComplete?.();
+      return;
+    }
+
+    currentStep++;
+    onStepProgress?.(currentStep, totalMoves);
+
+    const lastMove = state.history.undoStack.pop();
+    state.history.redoStack.push(lastMove);
+    updateHistoryButtons();
+
+    const fn = actionMap[lastMove.type];
+    if (fn) {
+      fn(
+        lastMove.moveName,
+        -lastMove.direction,
+        () => {
+          setTimeout(
+            nextSolve,
+            THREE.MathUtils.randInt(SHUFFLE_DELAY_MIN, SHUFFLE_DELAY_MAX),
+          );
+        },
+        true,
+      );
+    } else {
+      setTimeout(nextSolve, 50);
+    }
+  };
+
+  nextSolve();
+}
+
 /* ================================================================
    10. CAMERA / DRAG (시점 조작 및 마우스/터치 인터랙션)
    ================================================================ */
@@ -953,6 +1020,9 @@ function rotateRig() {
 }
 
 stage.addEventListener("pointerdown", (event) => {
+  if (event.target.closest(".viewport-hud")) {
+    return;
+  }
   state.interaction.dragging = true;
   state.interaction.lastX = event.clientX;
   state.interaction.lastY = event.clientY;
@@ -985,7 +1055,10 @@ stage.addEventListener("pointercancel", () => {
   stage.classList.remove("is-dragging");
 });
 
-stage.addEventListener("dblclick", () => {
+stage.addEventListener("dblclick", (event) => {
+  if (event.target.closest(".viewport-hud")) {
+    return;
+  }
   resetView();
 });
 
@@ -1026,6 +1099,7 @@ window.addEventListener("keydown", (event) => {
   // 스페이스바: 셔플 실행
   if (event.code === "Space") {
     event.preventDefault();
+    if (event.repeat) return;
     shuffleCube();
     return;
   }
@@ -1041,6 +1115,12 @@ window.addEventListener("keydown", (event) => {
   const key = event.key.toUpperCase();
   if (["R", "L", "U", "D", "F", "B"].includes(key)) {
     event.preventDefault();
+    if (event.repeat) return; // 키 꾹 누름 반복 방지
+    const now = performance.now();
+    if (now - lastKeyboardTurnTime < KEYBOARD_COOLDOWN_MS || state.interaction.turning) {
+      return; // 쿨타임 및 회전 중 중복 실행 방지
+    }
+    lastKeyboardTurnTime = now;
     const dir = event.shiftKey ? -1 : 1;
     turn(key, dir);
     return;
@@ -1177,6 +1257,7 @@ createPalette("backgroundPalette", PALETTES.backgroundPalette, (color) => {
 
   state.color.outline = isWhite ? "#000000" : "#ffffff";
   outlinePass.visibleEdgeColor.set(state.color.outline);
+  outlinePass.hiddenEdgeColor.set(state.color.outline);
 
   if (state.color.cube === "#000000" || state.color.cube === "#ffffff") {
     state.color.cube = isWhite ? "#ffffff" : "#000000";
@@ -1248,9 +1329,11 @@ function updateExportUI() {
       : `EXPORT IMAGE (${faceCount} Files)`;
   }
   if (recordBtn) {
+    const recordAction = getCardGroupValue("recordAction") || "shuffle";
+    const actionName = recordAction === "solve" ? "SOLVE" : "SHUFFLE";
     recordBtn.textContent = isObject
-      ? "RECORD SHUFFLE (1 Video)"
-      : `RECORD SHUFFLE (${faceCount} Videos)`;
+      ? `RECORD ${actionName} (1 Video)`
+      : `RECORD ${actionName} (${faceCount} Videos)`;
   }
 }
 
@@ -1365,12 +1448,20 @@ function exportObjectPNG(size, isTransparent) {
   const savedClearColor = renderer.getClearColor(new THREE.Color());
   const savedClearAlpha = renderer.getClearAlpha();
   const savedOutlineEnabled = outlinePass.enabled;
+  const savedThickness = outlinePass.edgeThickness;
+  const savedStrength = outlinePass.edgeStrength;
 
   try {
+    const scaleFactor = Math.max(1, size / 720);
+    outlinePass.edgeThickness = Math.max(2, Math.round(OUTLINE_EDGE_THICKNESS * scaleFactor));
+    outlinePass.edgeStrength = Math.max(6, Math.round(OUTLINE_EDGE_STRENGTH * 1.5));
+    outlinePass.enabled = true;
+
     if (isTransparent) {
       outlinePass.enabled = false;
       renderer.setClearColor(0x000000, 0);
     } else {
+      outlinePass.enabled = true;
       const bgVal = getCardGroupValue("exportBg");
       const bgColor = bgVal === "current" ? getCurrentBackgroundColor() : "#000000";
 
@@ -1395,7 +1486,9 @@ function exportObjectPNG(size, isTransparent) {
     camera.updateProjectionMatrix();
 
     outlinePass.visibleEdgeColor.set(state.color.outline);
-    outlinePass.hiddenEdgeColor.set(OUTLINE_HIDDEN_EDGE_COLOR);
+    outlinePass.hiddenEdgeColor.set(state.color.outline);
+    outlinePass.edgeThickness = savedThickness;
+    outlinePass.edgeStrength = savedStrength;
     renderer.setClearColor(savedClearColor, savedClearAlpha);
     outlinePass.enabled = savedOutlineEnabled;
 
@@ -1609,6 +1702,8 @@ async function setupObjectVideoRecording(preferredFormat = "mp4") {
   const savedAspect = camera.aspect;
   const savedClearColor = renderer.getClearColor(new THREE.Color());
   const savedClearAlpha = renderer.getClearAlpha();
+  const savedThickness = outlinePass.edgeThickness;
+  const savedStrength = outlinePass.edgeStrength;
 
   const bgColor = getCurrentBackgroundColor();
   renderer.setClearColor(bgColor, 1);
@@ -1616,6 +1711,18 @@ async function setupObjectVideoRecording(preferredFormat = "mp4") {
   const exportOutlineColor = getExportOutlineColor(bgColor);
   outlinePass.visibleEdgeColor.set(exportOutlineColor);
   outlinePass.hiddenEdgeColor.set(exportOutlineColor);
+
+  const videoScale = Math.max(1, VIDEO_OBJECT_SIZE / 720);
+  outlinePass.edgeThickness = Math.max(2, Math.round(OUTLINE_EDGE_THICKNESS * videoScale));
+  outlinePass.edgeStrength = Math.max(6, Math.round(OUTLINE_EDGE_STRENGTH * 1.5));
+  outlinePass.enabled = true;
+
+  if (outlinePass.overlayMaterial) {
+    outlinePass.overlayMaterial.blending = THREE.CustomBlending;
+    outlinePass.overlayMaterial.blendSrc = THREE.SrcAlphaFactor;
+    outlinePass.overlayMaterial.blendDst = THREE.OneMinusSrcAlphaFactor;
+    outlinePass.overlayMaterial.blendEquation = THREE.AddEquation;
+  }
 
   const videoSize = VIDEO_OBJECT_SIZE;
   applyRendererSize(videoSize, videoSize);
@@ -1628,7 +1735,9 @@ async function setupObjectVideoRecording(preferredFormat = "mp4") {
     camera.aspect = savedAspect;
     camera.updateProjectionMatrix();
     outlinePass.visibleEdgeColor.set(state.color.outline);
-    outlinePass.hiddenEdgeColor.set(OUTLINE_HIDDEN_EDGE_COLOR);
+    outlinePass.hiddenEdgeColor.set(state.color.outline);
+    outlinePass.edgeThickness = savedThickness;
+    outlinePass.edgeStrength = savedStrength;
     renderer.setClearColor(savedClearColor, savedClearAlpha);
     composer.render();
   };
@@ -1802,6 +1911,14 @@ recordBtn?.addEventListener("click", async () => {
   const target = getCardGroupValue("exportTarget");
   const isObject = target === "object";
   const preferredFormat = getCardGroupValue("recordVideoFormat") || "mp4";
+  const recordAction = getCardGroupValue("recordAction") || "shuffle";
+  const isSolve = recordAction === "solve";
+  const actionLabel = isSolve ? "맞추기(Solve)" : "셔플(Shuffle)";
+
+  if (isSolve && state.history.undoStack.length === 0) {
+    alert("큐브가 이미 완성 상태입니다. 먼저 큐브를 섞거나 회전한 후 녹화해주세요.");
+    return;
+  }
 
   // 녹화 중 UI 및 단축키 비활성화
   recordBtn.disabled = true;
@@ -1809,7 +1926,7 @@ recordBtn?.addEventListener("click", async () => {
 
   try {
     // 1단계: 레코더 세션 초기화 및 녹화 시작
-    setRecordProgress(5, "녹화 시작 (시작 전 상태 캡처 중)...");
+    setRecordProgress(5, `녹화 시작 (${actionLabel} 전 정지 상태 캡처 중)...`);
 
     if (isObject) {
       activeRecordingSession = await setupObjectVideoRecording(preferredFormat);
@@ -1827,9 +1944,10 @@ recordBtn?.addEventListener("click", async () => {
     // 2단계: 녹화 시작 전 딜레이(RECORD_START_DELAY: 800ms) 완벽 대기
     await new Promise((resolve) => setTimeout(resolve, RECORD_START_DELAY));
 
-    // 3단계: 모든 셔플 회전 시퀀스를 순차적으로 100% 실행
+    // 3단계: 셔플 또는 솔브 모션 시퀀스를 순차적으로 100% 실행
+    const runMotion = isSolve ? solveCube : shuffleCube;
     await new Promise((resolve) => {
-      shuffleCube(
+      runMotion(
         () => {
           // 모든 회전 애니메이션이 100% 완료되었을 때 호출
           resolve();
@@ -1839,14 +1957,14 @@ recordBtn?.addEventListener("click", async () => {
           const percent = 10 + Math.round((currentStep / totalSteps) * 80);
           setRecordProgress(
             percent,
-            `셔플 녹화 진행 중 (${currentStep} / ${totalSteps})...`,
+            `${actionLabel} 녹화 진행 중 (${currentStep} / ${totalSteps})...`,
           );
         },
       );
     });
 
     // 4단계: 모든 회전 완료 후 최종 딜레이(RECORD_END_DELAY: 1000ms) 완벽 대기
-    setRecordProgress(95, "셔플 완료 (완료 후 상태 캡처 중)...");
+    setRecordProgress(95, `${actionLabel} 완료 (완료 후 정지 상태 캡처 중)...`);
     await new Promise((resolve) => setTimeout(resolve, RECORD_END_DELAY));
 
     // 5단계: 녹화 세션 안전 마감 및 개별 비디오 파일 다운로드
@@ -1914,6 +2032,10 @@ turnButtons.forEach((button) => {
 
 shuffleButton?.addEventListener("click", () => {
   shuffleCube();
+});
+
+solveBtn?.addEventListener("click", () => {
+  solveCube();
 });
 
 undoBtn?.addEventListener("click", undo);
