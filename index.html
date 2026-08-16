@@ -1,61 +1,79 @@
 <!doctype html>
 <html lang="ko">
   <head>
+    <!-- ================================================================
+         PIECES 앱 — HTML 구조 목차
+         ----------------------------------------------------------------
+         01. 문서 메타 정보 및 제목
+         02. 웹폰트 로드 (Unbounded, Inter)
+         03. 스타일시트 연결 (style.css)
+         04. 모듈 임포트맵 (Three.js, MP4 Muxer, WebM Muxer)
+         05. 앱 전체 레이아웃
+             05-1. 좌측 제어 사이드바 (입력, 회전, 색상)
+             05-2. 중앙 3D 뷰포트 (3D 캔버스, 플로팅 HUD 툴바)
+             05-3. 우측 제어 사이드바 (2x3 면 썸네일, 탭 분리형 내보내기)
+         06. 화면 중앙 녹화 진행 모달
+         07. 자바스크립트 진입점 (app.js)
+         ================================================================ -->
+
+    <!-- 01. 문서 메타 정보 및 제목 -->
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PIECES</title>
+    <title>PIECES — 3D 루빅스 큐브</title>
 
-    <!-- ============================================================== -->
-    <!-- 1. 화면 전체에 적용할 웹폰트 -->
-    <!-- ============================================================== -->
+    <!-- 02. 웹폰트 로드 (Geist, Pretendard, Unbounded) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&family=Unbounded:wght@700;900&display=swap"
       rel="stylesheet"
     />
+    <link
+      rel="stylesheet"
+      as="style"
+      crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
+    />
 
-    <!-- ============================================================== -->
-    <!-- 2. 반응형 레이아웃과 UI 스타일 -->
-    <!-- ============================================================== -->
+    <!-- 03. 스타일시트 연결 -->
     <link rel="stylesheet" href="style.css" />
 
-    <!-- ============================================================== -->
-    <!-- 3. Three.js 모듈 경로 정의 -->
-    <!-- ============================================================== -->
+    <!-- 04. 모듈 임포트맵 -->
     <script type="importmap">
       {
         "imports": {
           "three": "https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js",
-          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/",
+          "mp4-muxer": "https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.4/+esm",
+          "webm-muxer": "https://cdn.jsdelivr.net/npm/webm-muxer@3.0.2/+esm"
         }
       }
     </script>
 
+    <!-- 07. 자바스크립트 진입점 -->
     <script type="module" src="app.js" defer></script>
   </head>
 
   <body>
-    <!-- ============================================================== -->
-    <!-- 4. 애플리케이션 전체 레이아웃 -->
-    <!-- ============================================================== -->
-
+    <!-- 05. 앱 전체 레이아웃 -->
     <main class="app">
-      <!-- ============================================================== -->
-      <!-- 4-1. 입력·TURN·모션·컬러를 조절하는 좌측 제어 영역 -->
-      <!-- ============================================================== -->
-
-      <aside class="sidebar">
+      <!-- ------------------------------------------------------------ -->
+      <!-- 05-1. 좌측 제어 사이드바 (입력, 회전, 색상)                     -->
+      <!-- ------------------------------------------------------------ -->
+      <aside class="sidebar sidebar--left">
+        <!-- 1. 글자 입력 패널: 6글자 통합 단어, 서체 선택기, 개별 6면 글자 입력 -->
         <section class="panel panel--input">
-          <h2 class="panel__title">INPUT</h2>
-
+          <div class="panel__header">
+            <h2 class="panel__title">INPUT</h2>
+            <select id="fontSelect" class="font-select" aria-label="서체 선택"></select>
+          </div>
           <div class="unified-input">
             <input
               type="text"
               id="unifiedWord"
               maxlength="6"
               value="PIECES"
-              placeholder="Word(Max 6)"
+              placeholder="단어 입력(최대 6글자)"
               autocomplete="off"
             />
           </div>
@@ -65,27 +83,22 @@
               <span>Front</span>
               <input data-face="front" maxlength="1" value="P" />
             </label>
-
             <label>
               <span>Right</span>
               <input data-face="right" maxlength="1" value="I" />
             </label>
-
             <label>
               <span>Back</span>
               <input data-face="back" maxlength="1" value="E" />
             </label>
-
             <label>
               <span>Left</span>
               <input data-face="left" maxlength="1" value="C" />
             </label>
-
             <label>
               <span>Top</span>
               <input data-face="top" maxlength="1" value="E" />
             </label>
-
             <label>
               <span>Bottom</span>
               <input data-face="bottom" maxlength="1" value="S" />
@@ -93,44 +106,8 @@
           </div>
         </section>
 
-        <section class="panel panel--turn">
-          <h2 class="panel__title">TURN</h2>
-
-          <div class="turn-grid">
-            <button data-turn="R" data-dir="1">R ↻</button>
-            <button data-turn="R" data-dir="-1">R ↺</button>
-
-            <button data-turn="L" data-dir="1">L ↻</button>
-            <button data-turn="L" data-dir="-1">L ↺</button>
-
-            <button data-turn="U" data-dir="1">U ↻</button>
-            <button data-turn="U" data-dir="-1">U ↺</button>
-
-            <button data-turn="D" data-dir="1">D ↻</button>
-            <button data-turn="D" data-dir="-1">D ↺</button>
-
-            <button data-turn="F" data-dir="1">F ↻</button>
-            <button data-turn="F" data-dir="-1">F ↺</button>
-
-            <button data-turn="B" data-dir="1">B ↻</button>
-            <button data-turn="B" data-dir="-1">B ↺</button>
-
-            <button id="shuffle" class="turn-grid__shuffle">SHUFFLE</button>
-          </div>
-        </section>
-
-        <section class="panel panel--motion">
-          <h2 class="panel__title">MOTION</h2>
-          <label class="toggle-control" for="autoRotate">
-            <input id="autoRotate" type="checkbox" checked />
-            <span>Auto rotate</span>
-          </label>
-          <p class="panel__hint">
-            Drag to orbit · Scroll to zoom · Arrow keys to rotate
-          </p>
-        </section>
-
-        <section class="panel panel--input">
+        <!-- 2. 색상 팔레트 패널: 글자색, 큐브색, 배경색 설정 -->
+        <section class="panel panel--color">
           <h2 class="panel__title">COLOR</h2>
           <div class="setting-group">
             <span>Text</span>
@@ -144,129 +121,249 @@
           </div>
         </section>
 
-        <section class="panel panel--export">
-          <h2 class="panel__title">EXPORT</h2>
+        <!-- 3. 회전 제어 패널: 수동 회전, 셔플, 되돌리기/다시실행, 초기화 -->
+        <section class="panel panel--turn">
+          <h2 class="panel__title">TURN</h2>
 
-          <div class="export-target">
-            <label
-              ><input type="radio" name="exportTarget" value="object" checked />
-              <span>Object</span></label
-            >
-            <label
-              ><input type="radio" name="exportTarget" value="faces" />
-              <span>Faces</span></label
-            >
+          <div class="turn-grid">
+            <button data-turn="R" data-dir="1">R ↻</button>
+            <button data-turn="R" data-dir="-1">R ↺</button>
+            <button data-turn="L" data-dir="1">L ↻</button>
+            <button data-turn="L" data-dir="-1">L ↺</button>
+            <button data-turn="U" data-dir="1">U ↻</button>
+            <button data-turn="U" data-dir="-1">U ↺</button>
+            <button data-turn="D" data-dir="1">D ↻</button>
+            <button data-turn="D" data-dir="-1">D ↺</button>
+            <button data-turn="F" data-dir="1">F ↻</button>
+            <button data-turn="F" data-dir="-1">F ↺</button>
+            <button data-turn="B" data-dir="1">B ↻</button>
+            <button data-turn="B" data-dir="-1">B ↺</button>
+
+            <button id="shuffle" class="turn-grid__shuffle">SHUFFLE</button>
+            <button id="solveBtn" class="turn-grid__solve" disabled>SOLVE</button>
           </div>
 
-          <div class="export-resolution" id="exportResolution">
-            <span>Resolution</span>
-            <select id="exportSize">
-              <option value="1020" selected>1x</option>
-              <option value="2040">2x</option>
-              <option value="3060">3x</option>
-              <option value="4080">4x</option>
-            </select>
+          <!-- 회전 히스토리 제어 버튼 -->
+          <div class="history-grid">
+            <button id="undoBtn" class="btn--history" title="되돌리기 (Cmd/Ctrl+Z)" disabled>
+              UNDO
+            </button>
+            <button id="redoBtn" class="btn--history" title="다시실행 (Cmd/Ctrl+Shift+Z)" disabled>
+              REDO
+            </button>
+            <button id="resetCubeBtn" class="btn--history" title="큐브 초기 상태로 정렬">
+              RESET CUBE
+            </button>
+            <button id="resetViewBtn" class="btn--history" title="카메라 시점 각도 초기화">
+              RESET VIEW
+            </button>
           </div>
-
-          <div class="export-faces" id="exportFaces" hidden>
-            <div class="face-checks">
-              <label
-                ><input type="checkbox" value="front" />
-                <span>Front</span></label
-              >
-              <label
-                ><input type="checkbox" value="right" />
-                <span>Right</span></label
-              >
-              <label
-                ><input type="checkbox" value="back" /> <span>Back</span></label
-              >
-              <label
-                ><input type="checkbox" value="left" /> <span>Left</span></label
-              >
-              <label
-                ><input type="checkbox" value="top" /> <span>Top</span></label
-              >
-              <label
-                ><input type="checkbox" value="bottom" />
-                <span>Bottom</span></label
-              >
-            </div>
-          </div>
-
-          <div class="export-bg">
-            <span>Background</span>
-            <div class="export-radios">
-              <label
-                ><input type="radio" name="exportBg" value="current" checked />
-                <span>Current</span></label
-              >
-              <label
-                ><input type="radio" name="exportBg" value="transparent" />
-                <span>Transparent</span></label
-              >
-            </div>
-          </div>
-
-          <div class="export-format">
-            <span>Format</span>
-            <div class="export-radios">
-              <label
-                ><input type="radio" name="exportFormat" value="png" checked />
-                <span>PNG</span></label
-              >
-              <label
-                ><input
-                  type="radio"
-                  name="exportFormat"
-                  value="svg"
-                  id="svgFormatRadio"
-                  disabled
-                />
-                <span>SVG</span></label
-              >
-            </div>
-          </div>
-
-          <button id="exportBtn" class="export-btn">EXPORT</button>
         </section>
       </aside>
 
-      <!-- ============================================================== -->
-      <!-- 4-2. 3D 큐브를 조작하고 관찰하는 중앙 렌더 영역 -->
-      <!-- ============================================================== -->
-
+      <!-- ------------------------------------------------------------ -->
+      <!-- 05-2. 중앙 3D 뷰포트 (3D 캔버스 & 플로팅 HUD 툴바)              -->
+      <!-- ------------------------------------------------------------ -->
       <section class="viewport">
-        <canvas id="view" aria-label="3D Rubik Cube"></canvas>
+        <!-- 3D WebGL 렌더링 캔버스 -->
+        <canvas id="view" aria-label="3D 루빅스 큐브"></canvas>
+
+        <!-- 뷰포트 하단 플로팅 HUD 툴바 -->
+        <div class="viewport-hud">
+          <label class="toggle-control hud-toggle" for="autoRotate">
+            <input id="autoRotate" type="checkbox" checked />
+            <span class="hud-toggle__label">Auto Rotate</span>
+          </label>
+          <div class="hud-divider"></div>
+          <span class="hud-hint">
+            드래그: 시점 회전 · 더블클릭: 시점 초기화 · 휠: 줌 · 키보드: R,L,U,D,F,B
+          </span>
+        </div>
       </section>
 
-      <aside class="face-preview" aria-label="Current cube faces">
-        <p class="face-preview__title">FACES</p>
-        <figure>
-          <canvas data-preview="front" width="510" height="510"></canvas>
-          <figcaption>Front</figcaption>
-        </figure>
-        <figure>
-          <canvas data-preview="right" width="510" height="510"></canvas>
-          <figcaption>Right</figcaption>
-        </figure>
-        <figure>
-          <canvas data-preview="back" width="510" height="510"></canvas>
-          <figcaption>Back</figcaption>
-        </figure>
-        <figure>
-          <canvas data-preview="left" width="510" height="510"></canvas>
-          <figcaption>Left</figcaption>
-        </figure>
-        <figure>
-          <canvas data-preview="top" width="510" height="510"></canvas>
-          <figcaption>Top</figcaption>
-        </figure>
-        <figure>
-          <canvas data-preview="bottom" width="510" height="510"></canvas>
-          <figcaption>Bottom</figcaption>
-        </figure>
+      <!-- ------------------------------------------------------------ -->
+      <!-- 05-3. 우측 제어 사이드바 (2x3 면 썸네일 & 탭 분리형 내보내기)     -->
+      <!-- ------------------------------------------------------------ -->
+      <aside class="sidebar sidebar--right">
+        <!-- 1. 면 미리보기 패널: 2열 3행 실시간 2D 타일 썸네일 카드 -->
+        <section class="panel panel--faces">
+          <div class="panel__header">
+            <h2 class="panel__title">FACES</h2>
+            <span class="panel__subtitle" id="faceSelectionHint">클릭하여 해당 면으로 이동</span>
+          </div>
+
+          <div class="face-preview-grid">
+            <figure class="face-card active" data-preview="front">
+              <canvas data-preview-canvas="front" width="510" height="510"></canvas>
+              <figcaption>Front</figcaption>
+            </figure>
+            <figure class="face-card" data-preview="right">
+              <canvas data-preview-canvas="right" width="510" height="510"></canvas>
+              <figcaption>Right</figcaption>
+            </figure>
+            <figure class="face-card" data-preview="back">
+              <canvas data-preview-canvas="back" width="510" height="510"></canvas>
+              <figcaption>Back</figcaption>
+            </figure>
+            <figure class="face-card" data-preview="left">
+              <canvas data-preview-canvas="left" width="510" height="510"></canvas>
+              <figcaption>Left</figcaption>
+            </figure>
+            <figure class="face-card" data-preview="top">
+              <canvas data-preview-canvas="top" width="510" height="510"></canvas>
+              <figcaption>Top</figcaption>
+            </figure>
+            <figure class="face-card" data-preview="bottom">
+              <canvas data-preview-canvas="bottom" width="510" height="510"></canvas>
+              <figcaption>Bottom</figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <!-- 2. 내보내기 패널: IMAGE / VIDEO 모드 탭 분리형 UI -->
+        <section class="panel panel--export">
+          <h2 class="panel__title">EXPORT</h2>
+
+          <!-- 상단 2대 모드 탭 세그먼트 (IMAGE vs VIDEO) -->
+          <div class="export-mode-tabs" data-control-group="exportMode">
+            <button type="button" class="mode-tab is-active" data-val="image">
+              <span class="mode-tab__text">IMAGE</span>
+            </button>
+            <button type="button" class="mode-tab" data-val="video">
+              <span class="mode-tab__text">VIDEO</span>
+            </button>
+          </div>
+
+          <!-- 공통: 내보내기 대상 선택 (3D 오브젝트 vs 2D 면) -->
+          <div class="export-field">
+            <span class="export-field__label">Target</span>
+            <div class="card-group card-group--2" data-control-group="exportTarget">
+              <button type="button" class="card-option is-active" data-val="object">
+                <span class="card-option__title">Object</span>
+              </button>
+              <button type="button" class="card-option" data-val="faces">
+                <span class="card-option__title">Faces</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 공통: 내보낼 면 선택 카드 (Faces 대상일 때만 활성화) -->
+          <div class="export-field" id="exportFacesSelector" hidden>
+            <div class="selector-header">
+              <span class="export-field__label">Select Faces</span>
+              <button id="selectAllFacesBtn" class="btn--text-link" type="button">전체 선택</button>
+            </div>
+            <div class="face-card-chips">
+              <button class="face-chip is-selected" data-chip-face="front" type="button">Front</button>
+              <button class="face-chip is-selected" data-chip-face="right" type="button">Right</button>
+              <button class="face-chip is-selected" data-chip-face="back" type="button">Back</button>
+              <button class="face-chip is-selected" data-chip-face="left" type="button">Left</button>
+              <button class="face-chip is-selected" data-chip-face="top" type="button">Top</button>
+              <button class="face-chip is-selected" data-chip-face="bottom" type="button">Bottom</button>
+            </div>
+          </div>
+
+          <!-- [IMAGE 모드 전용 필드 그룹] -->
+          <div class="mode-section" id="imageModeSection">
+            <!-- 해상도 배율 선택 (1x, 2x, 3x, 4x) -->
+            <div class="export-field" id="exportResolution">
+              <span class="export-field__label">Resolution</span>
+              <div class="card-group card-group--4" data-control-group="exportSize">
+                <button type="button" class="card-option card-option--compact" data-val="1020">
+                  1x
+                </button>
+                <button type="button" class="card-option card-option--compact" data-val="2040">
+                  2x
+                </button>
+                <button type="button" class="card-option card-option--compact is-active" data-val="3060">
+                  3x
+                </button>
+                <button type="button" class="card-option card-option--compact" data-val="4080">
+                  4x
+                </button>
+              </div>
+            </div>
+
+            <!-- 배경 투명도 옵션 -->
+            <div class="export-field">
+              <span class="export-field__label">Background</span>
+              <div class="card-group card-group--2" data-control-group="exportBg">
+                <button type="button" class="card-option is-active" data-val="current">
+                  Current
+                </button>
+                <button type="button" class="card-option" data-val="transparent">
+                  Transparent
+                </button>
+              </div>
+            </div>
+
+            <!-- 이미지 포맷 선택 (PNG vs SVG) -->
+            <div class="export-field">
+              <span class="export-field__label">Image Format</span>
+              <div class="card-group card-group--2" data-control-group="exportFormat">
+                <button type="button" class="card-option is-active" data-val="png">
+                  PNG
+                </button>
+                <button type="button" class="card-option" data-val="svg" id="svgFormatBtn" disabled>
+                  SVG
+                </button>
+              </div>
+            </div>
+
+            <!-- 이미지 내보내기 실행 버튼 -->
+            <div class="export-actions">
+              <button id="exportBtn" class="export-btn">EXPORT IMAGE (1 File)</button>
+            </div>
+          </div>
+
+          <!-- [VIDEO 모드 전용 필드 그룹] -->
+          <div class="mode-section" id="videoModeSection" hidden>
+            <!-- 녹화 동작 선택 (셔플 vs 자동 맞추기) -->
+            <div class="export-field">
+              <span class="export-field__label">Record Action</span>
+              <div class="card-group card-group--2" data-control-group="recordAction">
+                <button type="button" class="card-option is-active" data-val="shuffle">
+                  <span class="card-option__title">Shuffle</span>
+                </button>
+                <button type="button" class="card-option" data-val="solve">
+                  <span class="card-option__title">Solve</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 비디오 포맷 선택 (MP4 vs WebM) -->
+            <div class="export-field">
+              <span class="export-field__label">Video Format</span>
+              <div class="card-group card-group--2" data-control-group="recordVideoFormat">
+                <button type="button" class="card-option is-active" data-val="mp4">
+                  MP4
+                </button>
+                <button type="button" class="card-option" data-val="webm">
+                  WebM
+                </button>
+              </div>
+            </div>
+
+            <!-- 비디오 녹화 실행 버튼 -->
+            <div class="export-actions">
+              <button id="recordBtn" class="export-btn export-btn--record">RECORD SHUFFLE (1 Video)</button>
+            </div>
+          </div>
+        </section>
       </aside>
     </main>
+
+    <!-- 06. 화면 중앙 녹화 진행 모달 -->
+    <div id="recordModal" class="record-modal-backdrop" hidden>
+      <div class="record-modal-card">
+        <div class="record-modal__spinner"></div>
+        <h3 class="record-modal__title">비디오 녹화 진행 중</h3>
+        <p class="record-modal__status" id="recordProgressLabel">초기화 중...</p>
+        <div class="record-modal__track">
+          <div class="record-modal__fill" id="recordProgressFill"></div>
+        </div>
+        <span class="record-modal__hint">셔플 회전이 녹화되는 동안 잠시만 기다려주세요</span>
+      </div>
+    </div>
   </body>
 </html>
